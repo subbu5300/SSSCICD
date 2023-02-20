@@ -1,0 +1,45 @@
+---
+- hosts: all
+  become: true
+  vars:
+   maven_pom_group_id: com.restful.first
+   maven_pom_artifact_id: helloWorld
+   pom_version: "{{ current_project_version }}"
+   maven_pom_package_type: war
+   nexus_repo: http://35.202.93.122:8081/repository/helloworld_snap/
+   username: admin
+   password: admin123
+   path_to_download: /opt
+   tomcat_user: tomcat
+   tomcat_group: tomcat
+   artifact_absolute_path: "/opt/{{ maven_pom_artifact_id }}-{{ current_project_version }}.war"
+  tasks:
+    - name: download maven artifact
+      maven_artifact:
+        group_id: "{{ maven_pom_group_id }}"
+        artifact_id: "{{ maven_pom_artifact_id }}"
+        version: "{{ pom_version }}"
+        extension: "{{ maven_pom_package_type }}"
+        repository_url: "{{ nexus_repo }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        dest: "{{ path_to_download }}"
+        owner: "{{ tomcat_user }}"
+        group: "{{ tomcat_group }}"
+      register: download_war
+
+    - name: copy war onto tomcat servers
+      copy:
+        src: "{{ artifact_absolute_path }}"
+        dest: "/opt/tomcat/webapps/{{ maven_pom_artifact_id }}.war"
+        remote_src: yes
+
+    - name: remove war after coying
+      file:
+        path: "/opt/{{ maven_pom_artifact_id }}-{{ current_project_version }}.war"
+        state: absent
+
+    - name: restart tomcat
+      systemd:
+        name: tomcat
+        state: restarted       
